@@ -1,5 +1,10 @@
 <script setup>
-import { computed, nextTick, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import BellPad from './BellPad.vue'
+import VowelPad from './VowelPad.vue'
+import { createVowelPreview } from './vowel-preview.js'
+import { generateBellTimbre } from './bell-timbre.js'
+import { createBellPreview } from './bell-preview.js'
 import {
   Check,
   ChevronDown,
@@ -26,6 +31,9 @@ import {
   BREATHING_MAX_SECONDS,
   BREATHING_ANIMATION,
   SESSION_TICK_MS,
+  CUSTOM_BELL_ID,
+  BELL_TIMBRE,
+  VOWEL_CHART,
 } from './constants.js'
 import { animate } from 'motion/mini'
 import { getBreathingAnimation, getBreathingState, isValidBreathing } from './breathing.js'
@@ -62,6 +70,7 @@ const minutes = ref(DEFAULTS.durationMinutes)
 const breathingEnabled = ref(DEFAULTS.breathingEnabled)
 const hideTime = ref(DEFAULTS.hideTime)
 const audioGuidance = ref(DEFAULTS.audioGuidance)
+const exhaleVowel = ref({ ...VOWEL_CHART.defaultPosition })
 const guidanceEnabled = computed(() => breathingEnabled.value && audioGuidance.value)
 const breathingExpanded = ref(DEFAULTS.breathingEnabled)
 const bellExpanded = ref(DEFAULTS.bellEnabled)
@@ -71,7 +80,6 @@ const breathingDurations = ref(
 const validBreathing = computed(() => isValidBreathing(breathingDurations.value))
 const breathingCue = ref(null)
 const breathingOrb = ref(null)
-const breathingRing = ref(null)
 const breathingGlow = ref(null)
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
 let breathingAnimations = []
@@ -87,7 +95,6 @@ function stopBreathing(reset = true) {
   if (reset) {
     breathingAnimations = []
     if (breathingOrb.value) breathingOrb.value.style.transform = ''
-    if (breathingRing.value) breathingRing.value.style.transform = ''
     if (breathingGlow.value) breathingGlow.value.style.opacity = '0'
     breathingCue.value = null
   }
@@ -100,7 +107,6 @@ function syncBreathing(force = false) {
   if (!state) return
   if (reducedMotion.matches) {
     if (breathingOrb.value) breathingOrb.value.style.transform = 'scale(1)'
-    if (breathingRing.value) breathingRing.value.style.transform = 'scale(1)'
     if (breathingGlow.value) breathingGlow.value.style.opacity = String(Number(state.hold))
   } else {
     for (const animation of breathingAnimations) {
@@ -133,7 +139,7 @@ async function beginBreathing() {
     const options = { duration: frames.duration, repeat: Infinity, ease: 'linear', autoplay: false }
     breathingAnimations = [
       animate(
-        [breathingOrb.value, breathingRing.value].filter(Boolean),
+        breathingOrb.value,
         { transform: frames.transforms },
         { ...options, times: frames.scaleTimes },
       ),
@@ -162,6 +168,10 @@ const bellIntervalMs = computed(() =>
   bellInterval.value === BELL_REPEAT_NEVER ? null : bellInterval.value * 60_000,
 )
 const bellSound = ref(DEFAULTS.bellSound)
+const bellPosition = ref({ ...BELL_TIMBRE.defaultPosition })
+const selectedBell = computed(() =>
+  bellSound.value === CUSTOM_BELL_ID ? generateBellTimbre(bellPosition.value) : bellSound.value,
+)
 const bellIntervals = BELL_REPEAT_MINUTES
 const audioSupported = Boolean(window.AudioContext || window.webkitAudioContext)
 const audioError = ref('')
@@ -170,6 +180,12 @@ const isResuming = ref(false)
 const isTestingBell = ref(false)
 const audio = createAudioTransport()
 const bells = createBellPlayer(() => audio.context)
+const bellPreview = createBellPreview(() => audio.context)
+const vowelPreview = createVowelPreview(() => audio.context)
+let vowelPreviewActive = false
+let vowelPreviewVersion = 0
+let previewActive = false
+let previewVersion = 0
 const usesAudio = computed(() => bellEnabled.value || guidanceEnabled.value)
 const screen = ref('setup')
 const paused = ref(false)
@@ -264,12 +280,13 @@ function tick() {
 
 async function testBell() {
   if (isTestingBell.value || isStarting.value) return
+  stopPreviews()
   isTestingBell.value = true
   audioError.value = ''
   try {
     await audio.prepare()
     await bells.prepare()
-    if (bellEnabled.value && screen.value === 'setup') bells.preview(bellSound.value)
+    if (bellEnabled.value && screen.value === 'setup') bells.preview(selectedBell.value)
   } catch {
     audioError.value = 'Bell audio could not start. Try again or turn off bell sounds.'
   } finally {
@@ -278,10 +295,108 @@ async function testBell() {
 }
 
 function changeBells() {
+  stopCustomPreview()
   bellExpanded.value = bellEnabled.value
   audioError.value = ''
   bells.stop()
 }
+
+function stopCustomPreview() {
+  previewVersion += 1
+  previewActive = false
+  bellPreview.stop()
+}
+async function beginCustomPreview() {
+  if (previewActive || isStarting.value || isTestingBell.value) return
+  stopVowelPreview()
+  bellSound.value = CUSTOM_BELL_ID
+  const version = ++previewVersion
+  previewActive = true
+  audioError.value = ''
+  bells.stop()
+  try {
+    await audio.prepare()
+    if (
+      version !== previewVersion ||
+      !bellEnabled.value ||
+      !bellExpanded.value ||
+      screen.value !== 'setup' ||
+      bellSound.value !== CUSTOM_BELL_ID ||
+      document.hidden
+    )
+      return
+    bellPreview.begin(selectedBell.value)
+    if (!previewActive) bellPreview.release()
+  } catch {
+    if (version === previewVersion) {
+      stopCustomPreview()
+      audioError.value = 'Bell preview could not start. Try again.'
+    }
+  }
+}
+function endCustomPreview() {
+  previewActive = false
+  bellPreview.release()
+}
+function updateBellPosition(value) {
+  bellSound.value = CUSTOM_BELL_ID
+  bellPosition.value = value
+  if (previewActive) bellPreview.update(selectedBell.value)
+}
+function stopVowelPreview() {
+  vowelPreviewVersion += 1
+  vowelPreviewActive = false
+  vowelPreview.stop()
+}
+function stopPreviews() {
+  stopCustomPreview()
+  stopVowelPreview()
+}
+async function beginVowelPreview() {
+  if (vowelPreviewActive || isStarting.value || isTestingBell.value || !guidanceEnabled.value)
+    return
+  stopCustomPreview()
+  const version = ++vowelPreviewVersion
+  vowelPreviewActive = true
+  audioError.value = ''
+  bells.stop()
+  try {
+    await audio.prepare()
+    if (
+      version !== vowelPreviewVersion ||
+      !guidanceEnabled.value ||
+      !breathingExpanded.value ||
+      screen.value !== 'setup' ||
+      document.hidden
+    )
+      return
+    vowelPreview.begin(exhaleVowel.value)
+    if (!vowelPreviewActive) vowelPreview.release()
+  } catch {
+    if (version === vowelPreviewVersion) {
+      stopVowelPreview()
+      audioError.value = 'Vowel preview could not start. Try again.'
+    }
+  }
+}
+function endVowelPreview() {
+  vowelPreviewActive = false
+  vowelPreview.release()
+}
+function updateExhaleVowel(value) {
+  exhaleVowel.value = value
+  if (vowelPreviewActive) vowelPreview.update(value)
+}
+function previewVisibility() {
+  if (document.hidden) stopPreviews()
+}
+watch([breathingEnabled, breathingExpanded, audioGuidance], stopVowelPreview)
+watch([bellEnabled, bellExpanded], stopCustomPreview)
+watch(bellSound, (value) => {
+  if (value !== CUSTOM_BELL_ID) stopCustomPreview()
+})
+window.addEventListener('blur', stopPreviews)
+document.addEventListener('visibilitychange', previewVisibility)
 
 function changeBreathing() {
   breathingExpanded.value = breathingEnabled.value
@@ -306,6 +421,7 @@ async function start() {
     return
   }
   isStarting.value = true
+  stopPreviews()
   audioError.value = ''
   try {
     bells.stop()
@@ -316,6 +432,7 @@ async function start() {
       ? audio.begin({
           durationMs,
           breathing: guidanceEnabled.value ? breathingDurations.value : null,
+          vowel: exhaleVowel.value,
         })
       : undefined
     if (bellEnabled.value)
@@ -324,7 +441,7 @@ async function start() {
         durationMs,
         startBell: bellAtStart.value,
         endBell: bellAtEnd.value,
-        soundId: bellSound.value,
+        soundId: selectedBell.value,
         startTime,
       })
     sessionId += 1
@@ -366,6 +483,7 @@ async function togglePause() {
             durationMs: mode.value === 'timer' ? minutes.value * 60_000 : null,
             elapsedMs: clock.read().elapsed,
             breathing: guidanceEnabled.value ? breathingDurations.value : null,
+            vowel: exhaleVowel.value,
           })
         : undefined
       if (bellEnabled.value)
@@ -374,7 +492,7 @@ async function togglePause() {
           durationMs: mode.value === 'timer' ? minutes.value * 60_000 : null,
           elapsedMs: clock.read().elapsed,
           endBell: bellAtEnd.value,
-          soundId: bellSound.value,
+          soundId: selectedBell.value,
           startTime,
         })
       clock.resume()
@@ -427,6 +545,7 @@ async function finish() {
 }
 
 function reset() {
+  stopPreviews()
   audio.stop()
   stopBreathing()
   sessionId += 1
@@ -439,6 +558,9 @@ function reset() {
 }
 
 onUnmounted(() => {
+  stopPreviews()
+  window.removeEventListener('blur', stopPreviews)
+  document.removeEventListener('visibilitychange', previewVisibility)
   reducedMotion.removeEventListener('change', updateMotionPreference)
   stopBreathing()
   systemTheme.removeEventListener('change', updateSystemTheme)
@@ -451,6 +573,7 @@ onUnmounted(() => {
 
 <template>
   <div class="app-shell">
+    <a class="skip-link" href="#main">Skip to meditation</a>
     <header class="site-header">
       <a
         class="brand"
@@ -475,7 +598,7 @@ onUnmounted(() => {
       </button>
     </header>
 
-    <main id="main" class="main-content">
+    <main id="main" class="main-content" tabindex="-1">
       <div class="meditation-panel">
         <template v-if="screen === 'setup'">
           <h1 ref="heading" class="sr-only" tabindex="-1">Set up your meditation</h1>
@@ -514,6 +637,8 @@ onUnmounted(() => {
                       class="duration-input"
                       type="number"
                       inputmode="numeric"
+                      enterkeyhint="done"
+                      @keydown.enter.prevent="$event.target.blur()"
                       :min="TIMER.minMinutes"
                       :max="TIMER.maxMinutes"
                       step="1"
@@ -633,6 +758,8 @@ onUnmounted(() => {
                           v-model.number="breathingDurations[phase.key]"
                           type="number"
                           inputmode="numeric"
+                          enterkeyhint="done"
+                          @keydown.enter.prevent="$event.target.blur()"
                           :min="phase.min"
                           :max="BREATHING_MAX_SECONDS"
                           step="1"
@@ -674,6 +801,20 @@ onUnmounted(() => {
                     />
                     <span class="switch" aria-hidden="true"></span>
                   </label>
+                  <VowelPad
+                    v-if="audioGuidance"
+                    :model-value="exhaleVowel"
+                    :disabled="
+                      !breathingEnabled ||
+                      !breathingExpanded ||
+                      isStarting ||
+                      isTestingBell ||
+                      !audioSupported
+                    "
+                    @update:model-value="updateExhaleVowel"
+                    @preview-start="beginVowelPreview"
+                    @preview-end="endVowelPreview"
+                  />
                 </div>
               </div>
               <div class="setting-group" role="group" aria-labelledby="bell-settings-label">
@@ -731,16 +872,27 @@ onUnmounted(() => {
                       <option v-for="sound in BELL_SOUNDS" :key="sound.id" :value="sound.id">
                         {{ sound.label }}
                       </option>
+                      <option :value="CUSTOM_BELL_ID">Custom bell</option>
                     </select>
                     <button
                       class="test-bell"
                       type="button"
+                      aria-label="Test bell"
                       :disabled="!bellEnabled || isStarting || isTestingBell"
                       @click="testBell"
                     >
-                      <Volume2 :size="16" aria-hidden="true" />Test bell
+                      <Volume2 :size="16" aria-hidden="true" /><span class="test-bell-label"
+                        >Test bell</span
+                      >
                     </button>
                   </div>
+                  <BellPad
+                    :model-value="bellPosition"
+                    :disabled="!bellEnabled || !bellExpanded || isStarting || isTestingBell"
+                    @update:model-value="updateBellPosition"
+                    @preview-start="beginCustomPreview"
+                    @preview-end="endCustomPreview"
+                  />
                   <label class="setting-row">
                     <span class="setting-label">At session start</span>
                     <input
@@ -809,28 +961,35 @@ onUnmounted(() => {
               'breathing-active': breathingEnabled && screen === 'session',
             }"
           >
-            <div ref="breathingOrb" class="session-orb" aria-hidden="true">
-              <div class="orb-surface"></div>
-              <div ref="breathingGlow" class="breathing-glow"></div>
-            </div>
-            <svg
-              v-if="mode === 'timer' && !sessionTimeHidden"
-              ref="breathingRing"
-              class="progress-ring"
-              viewBox="0 0 280 280"
-              aria-hidden="true"
-            >
-              <g transform="rotate(-90 140 140)">
-                <circle class="ring-track" cx="140" cy="140" r="136" />
-                <circle
-                  class="ring-progress"
-                  cx="140"
-                  cy="140"
-                  r="136"
-                  pathLength="100"
-                  stroke-dasharray="100"
-                  :stroke-dashoffset="progress * 100"
-                />
+            <svg class="session-artwork" viewBox="0 0 280 280" aria-hidden="true">
+              <defs>
+                <radialGradient id="breathing-halo">
+                  <stop offset="64%" stop-color="var(--breathing-glow)" stop-opacity="0" />
+                  <stop offset="80%" stop-color="var(--breathing-glow)" />
+                  <stop offset="100%" stop-color="var(--breathing-glow)" stop-opacity="0" />
+                </radialGradient>
+              </defs>
+              <g ref="breathingOrb" class="session-orb">
+                <circle class="orb-surface" cx="140" cy="140" r="136" />
+                <g ref="breathingGlow" class="breathing-glow">
+                  <circle cx="140" cy="140" r="170" fill="url(#breathing-halo)" />
+                </g>
+                <g
+                  v-if="mode === 'timer' && !sessionTimeHidden"
+                  class="progress-ring"
+                  transform="rotate(-90 140 140)"
+                >
+                  <circle class="ring-track" cx="140" cy="140" r="136" />
+                  <circle
+                    class="ring-progress"
+                    cx="140"
+                    cy="140"
+                    r="136"
+                    pathLength="100"
+                    stroke-dasharray="100"
+                    :stroke-dashoffset="progress * 100"
+                  />
+                </g>
               </g>
             </svg>
             <Check

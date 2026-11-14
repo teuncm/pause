@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createAudioTransport, scheduleSweep } from './audio-transport.js'
+import { GUIDANCE_AUDIO, VOWEL_CHART } from './constants.js'
+import { getVowelFormants } from './vowel.js'
 
 vi.mock('tone', () => ({ getContext: vi.fn(), getTransport: vi.fn(), start: vi.fn() }))
 
@@ -7,6 +9,7 @@ function parameter() {
   return {
     value: 0,
     setValueAtTime: vi.fn(),
+    setValueCurveAtTime: vi.fn(),
     linearRampToValueAtTime: vi.fn(),
     exponentialRampToValueAtTime: vi.fn(),
     cancelScheduledValues: vi.fn(),
@@ -19,7 +22,7 @@ function fixture() {
     const result = {
       gain: parameter(),
       frequency: parameter(),
-      Q: {},
+      Q: parameter(),
       start: vi.fn(),
       stop: vi.fn(),
       disconnect: vi.fn(),
@@ -60,7 +63,45 @@ function fixture() {
   return { audio, context, events, nodes, transport, close }
 }
 
+function expectCurve(parameter, time, duration) {
+  const [curve, at, length] = parameter.setValueCurveAtTime.mock.lastCall
+  expect(at).toBe(time)
+  expect(length).toBe(duration)
+  expect(curve[0]).toBe(0)
+  expect(curve.at(-1)).toBe(0)
+  expect([...curve].every((value) => Number.isFinite(value) && value >= 0)).toBe(true)
+  return curve
+}
+
 const breathing = { in: 4, inHold: 2, out: 6, outHold: 2 }
+
+it('applies the three selected formants to Out and preserves In, including resume', async () => {
+  const f = fixture(),
+    vowel = { x: 0, y: 1 }
+  await f.audio.prepare()
+  f.audio.begin({ breathing, vowel })
+  f.events[0].callback(10.1)
+  f.events[1].callback(16.1)
+  const formants = getVowelFormants(vowel)
+  for (let i = 0; i < 3; i++) {
+    expect(f.nodes[5 + i].frequency.setValueAtTime.mock.calls).toEqual([
+      [GUIDANCE_AUDIO.inhale.filters[i].frequencyHz, 10.1],
+      [formants[i], 16.1],
+    ])
+  }
+  f.audio.stop()
+  const before = f.nodes.length
+  f.events.length = 0
+  f.audio.begin({ breathing, vowel, elapsedMs: 9000 })
+  f.events.find((event) => event.at === 9 && event.interval === null).callback(10.1)
+  for (let i = 0; i < 3; i++) {
+    const base = GUIDANCE_AUDIO.exhale.filters[i]
+    expect(f.nodes[before + 5 + i].frequency.setValueAtTime).toHaveBeenCalledWith(
+      expect.closeTo(formants[i] * Math.sqrt(base.endFrequencyHz / base.frequencyHz), 7),
+      10.1,
+    )
+  }
+})
 
 describe('breathing audio transport', () => {
   it('schedules only inhalation and exhalation, leaving both holds silent', async () => {
@@ -79,14 +120,38 @@ describe('breathing audio transport', () => {
     f.events[1].callback(16.1)
     expect(f.nodes[2].frequency.setValueAtTime.mock.calls).toEqual([
       [800, 10.1],
-      [1200, 16.1],
+      [VOWEL_CHART.lowPassMaxHz, 16.1],
     ])
-    expect(f.nodes[3].gain.linearRampToValueAtTime.mock.calls).toEqual([
-      [0.065, 10.1 + 0.45],
-      [0, 14.1],
-      [0.065, 16.55],
-      [0, 22.1],
+    const curves = f.nodes[3].gain.setValueCurveAtTime.mock.calls
+    expect(curves.map(([, time, duration]) => [time, duration])).toEqual([
+      [10.1, 4],
+      [16.1, 6],
     ])
+    for (const [curve] of curves) {
+      expect(curve[0]).toBe(0)
+      expect(curve.at(-1)).toBe(0)
+    }
+    for (const [index, settings] of GUIDANCE_AUDIO.exhale.filters.entries()) {
+      const peak = f.nodes[5 + index]
+      expect(peak.type).toBe('peaking')
+      const inhale = GUIDANCE_AUDIO.inhale.filters[index]
+      expect(peak.frequency.setValueAtTime.mock.calls).toEqual([
+        [inhale.frequencyHz, 10.1],
+        [settings.frequencyHz, 16.1],
+      ])
+      expect(peak.frequency.exponentialRampToValueAtTime.mock.calls).toEqual([
+        [inhale.endFrequencyHz ?? inhale.frequencyHz, 14.1],
+        [settings.endFrequencyHz ?? settings.frequencyHz, 22.1],
+      ])
+      expect(peak.Q.setValueAtTime.mock.calls).toEqual([
+        [inhale.q, 10.1],
+        [settings.q, 16.1],
+      ])
+      expect(peak.gain.setValueAtTime.mock.calls).toEqual([
+        [inhale.gainDb, 10.1],
+        [settings.gainDb, 16.1],
+      ])
+    }
   })
 
   it('uses the audio clock for session time, excluding the scheduling lead-in', async () => {
@@ -114,7 +179,8 @@ describe('breathing audio transport', () => {
       expect.closeTo(Math.sqrt(800 * 1200), 8),
       10.1,
     )
-    expect(f.nodes[3].gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 12.1)
+    const curve = expectCurve(f.nodes[3].gain, 10.1, 2)
+    expect(Math.max(...curve)).toBeLessThanOrEqual(GUIDANCE_AUDIO.gain * 0.83)
   })
 
   it('resumes silently in a hold and schedules the next exhale', async () => {
@@ -125,13 +191,37 @@ describe('breathing audio transport', () => {
     expect(f.nodes[3].gain.value).toBe(0)
   })
 
+  it('restores the mouth-breath peaks when resuming partway through Out', async () => {
+    const f = fixture()
+    await f.audio.prepare()
+    f.audio.begin({ breathing, elapsedMs: 9000 })
+    const resumed = f.events.find(({ at, interval }) => at === 9 && interval === null)
+    resumed.callback(10.1)
+    for (const [index, settings] of GUIDANCE_AUDIO.exhale.filters.entries()) {
+      const peak = f.nodes[5 + index]
+      expect(peak.gain.setValueAtTime).toHaveBeenCalledWith(settings.gainDb, 10.1)
+      expect(peak.frequency.setValueAtTime).toHaveBeenCalledWith(
+        expect.closeTo(
+          Math.sqrt(settings.frequencyHz * (settings.endFrequencyHz ?? settings.frequencyHz)),
+          8,
+        ),
+        10.1,
+      )
+    }
+    const curve = expectCurve(f.nodes[3].gain, 10.1, 3)
+    const profile = GUIDANCE_AUDIO.exhale
+    expect(Math.max(...curve)).toBeLessThanOrEqual(
+      GUIDANCE_AUDIO.gain * profile.gainMultiplier * (profile.adsr.sustainLevel + 0.001),
+    )
+  })
+
   it('fades out at the session boundary even when it falls within a phase', async () => {
     const f = fixture()
     await f.audio.prepare()
     f.audio.begin({ breathing, durationMs: 2000 })
     expect(f.events).toHaveLength(1)
     f.events[0].callback(10.1)
-    expect(f.nodes[3].gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 12.1)
+    expectCurve(f.nodes[3].gain, 10.1, 2)
     expect(f.nodes[2].frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(
       expect.closeTo(Math.sqrt(800 * 1200), 8),
       12.1,
@@ -147,7 +237,7 @@ describe('breathing audio transport', () => {
       [1, 2],
     ])
     f.events[0].callback(10.1)
-    expect(f.nodes[3].gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 11.1)
+    expectCurve(f.nodes[3].gain, 10.1, 1)
   })
 
   it('clears future transport events and fades queued audio when stopped', async () => {
@@ -168,10 +258,38 @@ describe('breathing audio transport', () => {
 })
 
 it('sweeps down throughout an exhale without making a second note or sound in a hold', () => {
-  const graph = { filter: { frequency: parameter() }, envelope: { gain: parameter() } }
+  const graph = { filter: { frequency: parameter() }, peaks: [], envelope: { gain: parameter() } }
   scheduleSweep(graph, 5, 6, 0, 6, false)
-  expect(graph.filter.frequency.setValueAtTime).toHaveBeenCalledWith(1200, 5)
-  expect(graph.filter.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(800, 11)
-  expect(graph.envelope.gain.setValueAtTime).toHaveBeenCalledWith(0, 5)
-  expect(graph.envelope.gain.linearRampToValueAtTime).toHaveBeenLastCalledWith(0, 11)
+  expect(graph.filter.frequency.setValueAtTime).toHaveBeenCalledWith(VOWEL_CHART.lowPassMaxHz, 5)
+  expect(graph.filter.frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(
+    VOWEL_CHART.lowPassMinHz,
+    11,
+  )
+  expectCurve(graph.envelope.gain, 5, 6)
 })
+
+it.each([true, false])(
+  'scales the complete ADSR to short and long phases (inhale=%s)',
+  (rising) => {
+    const profile = rising ? GUIDANCE_AUDIO.inhale : GUIDANCE_AUDIO.exhale
+    const { attackFraction, decayFraction, sustainLevel, releaseFraction } = profile.adsr
+    for (const seconds of [1, 60]) {
+      const graph = {
+        filter: { frequency: parameter() },
+        peaks: [],
+        envelope: { gain: parameter() },
+      }
+      scheduleSweep(graph, 10, seconds, 0, seconds, rising)
+      const curve = expectCurve(graph.envelope.gain, 10, seconds)
+      const gain = GUIDANCE_AUDIO.gain * profile.gainMultiplier
+      const at = (position) => curve[Math.round(position * (curve.length - 1))] / gain
+      expect(at(attackFraction)).toBeCloseTo(1, 2)
+      expect(at((attackFraction + decayFraction + 1 - releaseFraction) / 2)).toBeCloseTo(
+        sustainLevel,
+        3,
+      )
+      expect(at(1 - releaseFraction / 2)).toBeCloseTo(sustainLevel / 2, 1)
+      expect(Math.max(...curve)).toBeLessThanOrEqual(gain + 0.000001)
+    }
+  },
+)

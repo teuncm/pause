@@ -1,6 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600&display=swap');
-
 :root {
+  --page-gutter: clamp(0.75rem, 4.5vw, 1.5rem);
+  --panel-width: 24rem;
+  --touch-target: 2.75rem;
   color-scheme: light dark;
   --background: light-dark(#fafaf8, #262e29);
   --text: light-dark(#303a31, #f2f3ec);
@@ -44,8 +45,10 @@
 }
 body {
   margin: 0;
-  min-width: 280px;
+  min-width: 0;
   line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 button,
 input,
@@ -71,13 +74,31 @@ a,
 input,
 select {
   touch-action: manipulation;
-  outline-offset: 5px;
+  outline-offset: 3px;
+  scroll-margin-block: 2rem;
 }
 :focus-visible {
   outline: 3px solid var(--focus);
 }
 svg {
   flex-shrink: 0;
+}
+.skip-link {
+  position: absolute;
+  z-index: 10;
+  top: 0.5rem;
+  left: var(--page-gutter);
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  color: var(--button-text);
+  background: var(--button);
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: none;
+}
+.main-content:focus {
+  outline: none;
 }
 .sr-only {
   position: absolute;
@@ -91,25 +112,28 @@ svg {
   border: 0;
 }
 .app-shell {
+  min-height: 100vh;
   min-height: 100svh;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+    env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 .site-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  max-width: 428px;
-  padding: 12px 24px 0;
+  max-width: calc(var(--panel-width) + 2 * var(--page-gutter));
+  padding: 0.5rem var(--page-gutter) 0;
   margin: 0 auto;
 }
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 44px;
+  min-height: var(--touch-target);
   color: var(--muted);
   text-decoration: none;
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 550;
   line-height: 1;
   border-radius: 999px;
@@ -132,23 +156,20 @@ svg {
 .theme-toggle {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   padding: 0;
   border: 1px solid var(--control-border);
   border-radius: 50%;
   color: var(--muted);
   background: var(--surface);
 }
-.theme-toggle:hover {
-  background: var(--hover);
-  color: var(--text);
-}
 .main-content {
-  padding: 20px 24px 48px;
+  padding: 0.75rem var(--page-gutter) 1.5rem;
 }
 .meditation-panel {
-  max-width: 380px;
+  max-width: var(--panel-width);
+  min-width: 0;
   margin: 0 auto;
 }
 .mode-selector {
@@ -166,10 +187,10 @@ svg {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 44px;
+  min-height: var(--touch-target);
   flex: 1;
   border-radius: 999px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 500;
   color: var(--muted);
   line-height: 1.2;
@@ -187,18 +208,22 @@ svg {
 }
 .mode-option input {
   position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
   opacity: 0;
-  width: 1px;
-  height: 1px;
+  cursor: inherit;
 }
 .duration-section {
-  padding: 36px 0 28px;
+  container: duration / inline-size;
+  padding: clamp(1rem, 3svh, 2rem) 0 1rem;
 }
 .duration-controls {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  grid-template-columns: var(--touch-target) minmax(0, 1fr) var(--touch-target);
   align-items: center;
-  gap: 10px;
+  gap: 0.5rem;
 }
 .clock-face {
   position: relative;
@@ -206,7 +231,7 @@ svg {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 224px;
+  width: clamp(7rem, 26svh, 13rem);
   max-width: 100%;
   height: auto;
   aspect-ratio: 1;
@@ -226,7 +251,7 @@ svg {
   padding: 0;
   margin: 0;
   color: var(--text);
-  font-size: 76px;
+  font-size: clamp(3rem, 10svh, 4.75rem);
   font-weight: 400;
   line-height: 1.1;
   letter-spacing: normal;
@@ -244,14 +269,14 @@ svg {
 .time-unit {
   display: block;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 400;
   line-height: 1.4;
   text-align: center;
 }
 .icon-button {
-  width: 44px;
-  height: 44px;
+  width: var(--touch-target);
+  height: var(--touch-target);
   display: grid;
   place-items: center;
   border: 1px solid var(--line);
@@ -260,34 +285,30 @@ svg {
   flex-shrink: 0;
   color: var(--muted);
 }
-.icon-button:hover:not(:disabled) {
-  background: var(--hover);
-  color: var(--text);
-}
 .icon-button:disabled {
   opacity: 0.35;
 }
 .duration-options {
-  min-height: 68px;
-  padding-top: 24px;
+  padding-top: 0.75rem;
 }
 .presets {
   display: flex;
   justify-content: center;
-  gap: 9px;
+  flex-wrap: wrap;
+  gap: 0.25rem;
 }
 .preset {
   display: grid;
   place-items: center;
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
+  width: var(--touch-target);
+  min-width: var(--touch-target);
+  height: var(--touch-target);
   padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 400;
   line-height: 1;
   text-align: center;
@@ -298,12 +319,9 @@ svg {
   font-weight: 600;
   box-shadow: inset 0 0 0 1px var(--control-border);
 }
-.preset:hover {
-  background: var(--hover);
-}
 .validation-message {
   color: var(--error);
-  font-size: 12px;
+  font-size: 0.8125rem;
   text-align: center;
   margin: 12px 0 0;
 }
@@ -313,21 +331,22 @@ svg {
 }
 .timeless-label {
   color: var(--muted);
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.4;
   text-align: center;
 }
 .settings {
-  padding: 0 20px;
-  border-radius: 24px;
+  container: settings / inline-size;
+  padding: 0 clamp(0.75rem, 3.5vw, 1.25rem);
+  border-radius: 1.5rem;
   background: var(--surface);
 }
 .setting-row {
   position: relative;
   display: flex;
-  gap: 15px;
+  gap: 0.75rem;
   align-items: center;
-  min-height: 72px;
+  min-height: 3.5rem;
 }
 .setting-group + .setting-group {
   border-top: 1px solid var(--line);
@@ -341,7 +360,7 @@ svg {
   justify-content: space-between;
   flex: 1;
   min-width: 0;
-  min-height: 44px;
+  min-height: var(--touch-target);
   gap: 8px;
   padding: 0;
   border: 0;
@@ -364,54 +383,60 @@ svg {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
+  flex: 0 0 var(--touch-target);
+  width: var(--touch-target);
+  height: var(--touch-target);
 }
 .breathing-options,
 .bell-settings {
-  padding: 0 0 12px 16px;
+  padding: 0 0 8px;
 }
 .breathing-options .setting-label,
 .bell-settings .setting-label {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--muted);
 }
 .breathing-durations {
   min-width: 0;
   margin: 0;
-  padding: 0 0 8px;
+  padding: 0 0 4px;
   border: 0;
 }
 .breathing-durations legend {
-  padding: 0 0 12px;
-  font-size: 12px;
+  padding: 0 0 6px;
+  font-size: 0.8125rem;
   color: var(--muted);
 }
 .breathing-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 12px;
+  gap: 0.25rem 0.75rem;
 }
 .breathing-control {
   display: grid;
-  gap: 8px;
+  grid-template-columns: minmax(max-content, 1fr) minmax(var(--touch-target), 3.5rem);
+  align-items: center;
+  gap: 6px;
   min-width: 0;
-  font-size: 12px;
+  min-height: var(--touch-target);
+  font-size: 0.8125rem;
   line-height: 1.4;
-  text-align: center;
+  text-align: left;
   color: var(--muted);
+}
+.breathing-control > span {
+  white-space: nowrap;
 }
 .breathing-control input {
   width: 100%;
   min-width: 0;
-  min-height: 44px;
-  padding: 0 6px;
+  min-height: var(--touch-target);
+  padding: 0 4px;
   border: 1px solid var(--control-border);
   border-radius: 999px;
   color: var(--text);
   background: var(--background);
-  font-size: 14px;
+  font-size: 1rem;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -425,34 +450,38 @@ svg {
   border-color: var(--error);
 }
 .breathing-error {
-  margin: 0 0 12px 16px;
+  margin: 0 0 8px;
   color: var(--error);
-  font-size: 12px;
+  font-size: 0.8125rem;
   line-height: 1.5;
 }
 .breathing-options > .setting-row {
-  min-height: 56px;
+  min-height: var(--touch-target);
 }
 .setting-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 400;
   line-height: 1.4;
   text-align: left;
 }
 .coming-later {
   display: block;
-  font-size: 11px;
+  font-size: 0.75rem;
   line-height: 1.4;
   color: var(--muted);
 }
 .switch-input {
   position: absolute;
+  top: 50%;
   right: 0;
-  width: 44px;
-  height: 44px;
+  transform: translateY(-50%);
+  width: var(--touch-target);
+  height: var(--touch-target);
   margin: 0;
   opacity: 0;
   cursor: not-allowed;
@@ -476,21 +505,21 @@ svg {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  padding-top: 8px;
+  padding-top: 4px;
 }
 .bell-settings > .setting-row {
-  min-height: 48px;
+  min-height: var(--touch-target);
 }
 .bell-option-label {
   display: block;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 0.8125rem;
   line-height: 1.4;
 }
 .bell-sound-options {
-  padding-bottom: 8px;
+  padding-bottom: 4px;
 }
 .bell-repeat-options {
   flex-wrap: nowrap;
@@ -499,16 +528,16 @@ svg {
   flex-basis: 0;
 }
 .bell-select {
-  flex: 1 1 140px;
-  min-height: 44px;
+  flex: 1 1 120px;
+  min-height: var(--touch-target);
   min-width: 0;
-  padding: 0 12px;
+  padding: 0 8px;
   border: 1px solid var(--control-border);
   border-radius: 999px;
   color: var(--text);
   background: var(--background);
-  font-size: 13px;
-  line-height: 1.2;
+  font-size: 1rem;
+  line-height: 1.4;
   text-align: center;
   text-align-last: center;
 }
@@ -517,28 +546,26 @@ svg {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
-  gap: 7px;
-  padding: 0 12px;
+  min-height: var(--touch-target);
+  gap: 5px;
+  padding: 0 8px;
   border: 0;
   border-radius: 999px;
   color: var(--muted);
   background: var(--background);
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.2;
-}
-.test-bell:hover:not(:disabled) {
-  background: var(--hover);
 }
 .test-bell:disabled {
   opacity: 0.5;
 }
 .audio-error {
   color: var(--error);
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1.5;
 }
 .switch {
+  flex: 0 0 36px;
   width: 36px;
   height: 20px;
   background: var(--track);
@@ -561,18 +588,16 @@ svg {
   justify-content: center;
   gap: 10px;
   width: 100%;
-  min-height: 54px;
+  min-height: 3.25rem;
+  padding: 0.75rem 1rem;
   border: 0;
   border-radius: 999px;
   color: var(--button-text);
   background: var(--button);
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.2;
   text-align: center;
-}
-.primary-button:hover:not(:disabled) {
-  background: var(--button-hover);
 }
 .primary-button:has(> svg)::after {
   content: '';
@@ -589,9 +614,9 @@ svg {
   text-align: center;
 }
 .session-heading {
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: 500;
-  margin: 16px 0 40px;
+  margin: 0.5rem 0 clamp(1.25rem, 4svh, 2.5rem);
   line-height: 1.4;
   text-align: center;
 }
@@ -600,7 +625,7 @@ svg {
 }
 .session-clock {
   position: relative;
-  width: 280px;
+  width: min(16rem, 85%, 44svh);
   max-width: 100%;
   height: auto;
   aspect-ratio: 1;
@@ -613,38 +638,30 @@ svg {
   text-align: center;
   isolation: isolate;
 }
-.session-orb {
+.session-artwork {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 0;
-  border-radius: 50%;
-  transform-origin: center;
-  backface-visibility: hidden;
+  overflow: visible;
   pointer-events: none;
 }
-.orb-surface {
-  position: absolute;
-  inset: 0;
-  border: 1px solid var(--line);
-  border-radius: 50%;
-  background: var(--surface);
-  clip-path: circle(50%);
+.session-orb {
+  transform-box: view-box;
+  transform-origin: center;
 }
-.breathing-active .session-orb,
-.breathing-active .progress-ring {
-  will-change: transform;
+.orb-surface {
+  fill: var(--surface);
+  stroke: var(--line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 .breathing-glow {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow:
-    0 0 28px 8px var(--breathing-glow),
-    inset 0 0 18px var(--breathing-glow);
   opacity: 0;
 }
 .breathing-active .session-time {
-  font-size: clamp(34px, 12vw, 48px);
+  font-size: clamp(2rem, 7svh, 3rem);
 }
 .breathing-cue {
   display: flex;
@@ -654,7 +671,7 @@ svg {
   min-height: 24px;
   margin: 16px 0 0;
   color: var(--accent);
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.5;
   font-variant-numeric: tabular-nums;
 }
@@ -662,17 +679,11 @@ svg {
   margin-top: 24px;
 }
 .progress-ring {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-  transform-origin: center;
-  transform-box: border-box;
-  backface-visibility: hidden;
-  pointer-events: none;
   fill: none;
   stroke-width: 1.5;
+}
+.progress-ring > circle {
+  vector-effect: non-scaling-stroke;
 }
 .ring-track {
   stroke: var(--line);
@@ -684,7 +695,8 @@ svg {
 .session-time {
   position: relative;
   z-index: 2;
-  font-size: 55px;
+  font-size: clamp(1.5rem, 8svh, 3.4375rem);
+  overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
   letter-spacing: normal;
   font-weight: 400;
@@ -700,27 +712,25 @@ svg {
 }
 .session-actions {
   display: grid;
-  gap: 12px;
-  margin-top: 48px;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
 }
 .secondary-button {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  min-height: 48px;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-height: 3rem;
+  padding: 0.5rem 1rem;
   width: 100%;
   border: 0;
   border-radius: 999px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 14px;
+  font-size: 0.875rem;
   line-height: 1.2;
   text-align: center;
-}
-.secondary-button:hover {
-  background: var(--hover);
-  color: var(--text);
 }
 .secondary-button:has(> svg)::after {
   content: '';
@@ -732,99 +742,161 @@ svg {
   margin-bottom: 12px;
 }
 .done-button {
-  margin-top: 48px;
+  margin-top: 1.5rem;
 }
 
-@media (max-width: 400px) {
+@container duration (max-width: 16rem) {
   .clock-face {
-    width: 204px;
+    grid-column: 1 / -1;
+    grid-row: 1;
   }
-  .duration-controls {
-    gap: 5px;
+  .duration-adjust {
+    grid-row: 2;
   }
-  .session-clock {
-    width: 252px;
+  .duration-adjust:last-child {
+    grid-column: 3;
   }
 }
-@media (max-width: 340px) {
-  .site-header,
-  .main-content {
-    padding-left: 16px;
-    padding-right: 16px;
+
+@container settings (max-width: 16rem) {
+  .breathing-controls {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 0.25rem;
   }
-  .clock-face {
-    width: 174px;
+  .breathing-control {
+    grid-template-columns: minmax(0, 1fr) var(--touch-target);
   }
-  .preset {
-    min-width: 44px;
-    padding: 0;
+  .test-bell-label {
+    display: none;
   }
-  .presets {
-    gap: 5px;
-  }
-  .settings {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  .session-clock {
-    width: 240px;
-  }
-  .session-time {
-    font-size: 46px;
+  .test-bell {
+    min-width: var(--touch-target);
   }
 }
-@media (max-width: 767px) and (max-height: 760px) {
-  .main-content {
-    padding: 16px 24px 24px;
+
+@container settings (max-width: 12rem) {
+  .setting-heading {
+    flex-wrap: wrap;
+    gap: 0;
+    padding-block: 0.25rem;
   }
-  .clock-face {
-    width: 174px;
+  .setting-disclosure {
+    flex-basis: 100%;
   }
-  .duration-section {
-    padding: 24px 0;
+  .setting-toggle {
+    margin-left: auto;
   }
-  .duration-options {
-    min-height: 64px;
-    padding-top: 20px;
+  .breathing-control {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
   }
-  .setting-row {
-    min-height: 68px;
+  .breathing-control > span {
+    white-space: normal;
+  }
+  .bell-sound-options {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .bell-select {
+    flex-basis: auto;
+  }
+  .test-bell-label {
+    display: inline;
+  }
+  .bell-repeat-options {
+    flex-wrap: wrap;
+  }
+  .bell-repeat-options .bell-select {
+    flex-basis: 100%;
   }
 }
-@media (max-width: 767px) and (max-height: 620px) {
-  .site-header {
-    padding: 8px 20px 0;
+
+@media (hover: hover) and (pointer: fine) {
+  .theme-toggle:hover {
+    background: var(--hover);
+    color: var(--text);
   }
-  .main-content {
-    padding: 8px 20px 16px;
+  .icon-button:hover:not(:disabled) {
+    background: var(--hover);
+    color: var(--text);
   }
-  .clock-face {
-    width: 144px;
+  .preset:hover:not(.active) {
+    background: var(--hover);
   }
-  .duration-input {
-    font-size: 62px;
+  .test-bell:hover:not(:disabled) {
+    background: var(--hover);
   }
-  .duration-section {
-    padding: 16px 0;
+  .primary-button:hover:not(:disabled) {
+    background: var(--button-hover);
   }
-  .duration-options {
-    min-height: 56px;
-    padding-top: 12px;
+  .secondary-button:hover {
+    background: var(--hover);
+    color: var(--text);
   }
-  .setting-row {
-    min-height: 60px;
+}
+
+@media (min-width: 40rem) and (max-height: 32rem) {
+  .meditation-panel:has(.session) {
+    max-width: 42rem;
   }
-  .start-button {
-    margin-top: 16px;
+  .session {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.75rem 2rem;
+    align-items: center;
   }
   .session-heading {
-    margin: 10px 0 25px;
+    grid-column: 1 / -1;
+    margin: 0;
+  }
+  .session-clock {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .breathing-cue {
+    grid-column: 1;
+    grid-row: 3;
+    margin: 0;
   }
   .session-actions,
+  .breathing-cue + .session-actions,
   .done-button {
-    margin-top: 30px;
+    grid-column: 2;
+    grid-row: 2 / 4;
+    margin: 0;
   }
 }
+
+@media (forced-colors: active) {
+  .orb-surface {
+    fill: Canvas;
+    stroke: CanvasText;
+  }
+  .breathing-glow {
+    display: none;
+  }
+  .switch {
+    forced-color-adjust: none;
+    background: Canvas;
+    border: 1px solid ButtonText;
+    padding: 2px;
+  }
+  .switch::after {
+    background: ButtonText;
+  }
+  .switch-input:checked + .switch {
+    background: Highlight;
+  }
+  .switch-input:checked + .switch::after {
+    background: HighlightText;
+  }
+  .mode-option.selected,
+  .preset.active {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

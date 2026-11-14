@@ -1,10 +1,18 @@
-import { BELL_SOUNDS, DEFAULT_BELL_SOUND, BELL_AUDIO } from './constants.js'
+import { BELL_SOUNDS, DEFAULT_BELL_SOUND, BELL_AUDIO, BELL_TIMBRE } from './constants.js'
 
 export { BELL_SOUNDS, DEFAULT_BELL_SOUND } from './constants.js'
 
 // Keep the low resonance centered; two gently modulated delays add a warm chorus.
-export function scheduleBell(context, when, soundId = DEFAULT_BELL_SOUND) {
-  const sound = BELL_SOUNDS.find((candidate) => candidate.id === soundId) || BELL_SOUNDS[0]
+export function scheduleBell(
+  context,
+  when,
+  soundId = DEFAULT_BELL_SOUND,
+  { sustain = false } = {},
+) {
+  const sound =
+    typeof soundId === 'object' && soundId !== null
+      ? soundId
+      : BELL_SOUNDS.find((candidate) => candidate.id === soundId) || BELL_SOUNDS[0]
   const voices = new Set()
   const modulators = new Set()
   const effectNodes = new Set()
@@ -53,21 +61,24 @@ export function scheduleBell(context, when, soundId = DEFAULT_BELL_SOUND) {
       cleanUp()
     }
     lfo.start(when)
-    lfo.stop(end + BELL_AUDIO.chorusTailSeconds)
+    if (!sustain) lfo.stop(end + BELL_AUDIO.chorusTailSeconds)
   }
 
-  for (const [frequency, volume, decay, delay = 0] of sound.partials) {
+  for (const [index, [frequency, volume, decay, delay = 0]] of sound.partials.entries()) {
     const start = when + delay
     const oscillator = context.createOscillator()
     const gain = context.createGain()
     oscillator.type = 'sine'
     oscillator.frequency.setValueAtTime(frequency, start)
-    gain.gain.setValueAtTime(BELL_AUDIO.minimumGain, start)
-    gain.gain.linearRampToValueAtTime(volume, start + sound.attack)
-    gain.gain.exponentialRampToValueAtTime(BELL_AUDIO.minimumGain, start + decay)
+    gain.gain.setValueAtTime(sustain ? 0 : BELL_AUDIO.minimumGain, start)
+    gain.gain.linearRampToValueAtTime(
+      volume,
+      start + (sustain ? BELL_TIMBRE.previewFadeSeconds : sound.attack),
+    )
+    if (!sustain) gain.gain.exponentialRampToValueAtTime(BELL_AUDIO.minimumGain, start + decay)
     oscillator.connect(gain)
     gain.connect(input)
-    const voice = { oscillator, gain }
+    const voice = { oscillator, gain, index, start, decay }
     voices.add(voice)
     oscillator.onended = () => {
       oscillator.disconnect()
@@ -76,7 +87,7 @@ export function scheduleBell(context, when, soundId = DEFAULT_BELL_SOUND) {
       cleanUp()
     }
     oscillator.start(start)
-    oscillator.stop(start + decay + BELL_AUDIO.voiceTailSeconds)
+    if (!sustain) oscillator.stop(start + decay + BELL_AUDIO.voiceTailSeconds)
   }
 
   return {
@@ -84,25 +95,60 @@ export function scheduleBell(context, when, soundId = DEFAULT_BELL_SOUND) {
     get ended() {
       return voices.size === 0 && modulators.size === 0
     },
-    stop() {
+    update(nextSound) {
+      const now = context.currentTime
+      for (const voice of voices) {
+        const partial = nextSound.partials[voice.index]
+        const end = voice.start + voice.decay
+        if (!partial || (!sustain && now >= end)) continue
+        const [frequency, volume] = partial
+        const at = Math.max(now, voice.start)
+        voice.oscillator.frequency.cancelScheduledValues(at)
+        if (now <= voice.start) voice.oscillator.frequency.setValueAtTime(frequency, at)
+        else voice.oscillator.frequency.setTargetAtTime(frequency, at, BELL_TIMBRE.morphSeconds)
+        const param = voice.gain.gain
+        const held = Math.max(BELL_AUDIO.minimumGain, param.value)
+        param.cancelScheduledValues(at)
+        param.setValueAtTime(held, at)
+        if (sustain) {
+          if (now <= voice.start)
+            param.linearRampToValueAtTime(volume, voice.start + BELL_TIMBRE.previewFadeSeconds)
+          else param.setTargetAtTime(volume, at, BELL_TIMBRE.morphSeconds)
+          continue
+        }
+        const rampEnd = at + Math.min(BELL_TIMBRE.morphSeconds, (end - at) / 2)
+        const attackEnd = voice.start + sound.attack
+        const age = rampEnd - voice.start
+        const level =
+          age < sound.attack
+            ? BELL_AUDIO.minimumGain + ((volume - BELL_AUDIO.minimumGain) * age) / sound.attack
+            : volume *
+              (BELL_AUDIO.minimumGain / volume) ** ((rampEnd - attackEnd) / (end - attackEnd))
+        param.linearRampToValueAtTime(Math.max(BELL_AUDIO.minimumGain, level), rampEnd)
+        if (rampEnd < attackEnd) param.linearRampToValueAtTime(volume, attackEnd)
+        param.exponentialRampToValueAtTime(BELL_AUDIO.minimumGain, end)
+      }
+    },
+    stop(fadeSeconds = BELL_AUDIO.stopFadeSeconds) {
       const now = context.currentTime
       // Fade the whole mix so a chorus tail cannot linger after pause or end.
       output.gain.cancelScheduledValues(now)
       output.gain.setValueAtTime(Math.max(BELL_AUDIO.minimumGain, output.gain.value), now)
-      output.gain.exponentialRampToValueAtTime(
-        BELL_AUDIO.minimumGain,
-        now + BELL_AUDIO.stopFadeSeconds,
-      )
+      output.gain.exponentialRampToValueAtTime(BELL_AUDIO.minimumGain, now + fadeSeconds)
       for (const { oscillator, gain } of voices) {
         gain.gain.cancelScheduledValues(now)
         gain.gain.setValueAtTime(Math.max(BELL_AUDIO.minimumGain, gain.gain.value), now)
-        gain.gain.exponentialRampToValueAtTime(
-          BELL_AUDIO.minimumGain,
-          now + BELL_AUDIO.stopFadeSeconds,
+        gain.gain.exponentialRampToValueAtTime(BELL_AUDIO.minimumGain, now + fadeSeconds)
+        oscillator.stop(
+          now + BELL_AUDIO.stopSeconds + Math.max(0, fadeSeconds - BELL_AUDIO.stopFadeSeconds),
         )
-        oscillator.stop(now + BELL_AUDIO.stopSeconds)
       }
-      for (const lfo of modulators) lfo.stop(now + BELL_AUDIO.chorusTailSeconds)
+      for (const lfo of modulators)
+        lfo.stop(
+          now +
+            BELL_AUDIO.chorusTailSeconds +
+            Math.max(0, fadeSeconds - BELL_AUDIO.stopFadeSeconds),
+        )
     },
   }
 }

@@ -1,13 +1,51 @@
 // Session defaults. Durations are minutes unless the property says otherwise.
 export const DEFAULT_BELL_SOUND = 'soft'
 export const BELL_REPEAT_NEVER = 0
+export const CUSTOM_BELL_ID = 'custom'
+export const VOWEL_CHART = {
+  defaultPosition: { x: 1, y: 0 }, // Back/open: the existing "ahh".
+  keyboardStep: 0.01,
+  defaultStrength: 1,
+  maxStrength: 1.5,
+  strengthStep: 0.01,
+  // Approximate unvoiced F1/F2/F3 anchors (Hz), not a speaker-specific voice model.
+  // X: front -> back; Y: open -> close.
+  openFront: [850, 1700, 2800],
+  openBack: [740, 1150, 2500],
+  closeFront: [300, 2500, 3300],
+  closeBack: [350, 800, 2400],
+  lowPassMinHz: 3000, // Leave room for all three formants on exhalation.
+  lowPassMaxHz: 3800,
+  morphSeconds: 0.08,
+  previewFadeSeconds: 0.06,
+  previewReleaseSeconds: 0.1,
+}
+export const BELL_TIMBRE = {
+  defaultPosition: { x: 0.35, y: 0.3 },
+  minHz: 60,
+  maxHz: 180,
+  ratios: [1, 1.006, 2.76, 5.42, 8.93, 12.4],
+  weights: [1, 0.55, 0.35, 0.2, 0.13, 0.08],
+  totalGain: 0.38,
+  ratioVariation: 0.06,
+  pitchVariationOctaves: 0.035,
+  minAttackSeconds: 0.28,
+  attackRangeSeconds: 0.32,
+  minDecaySeconds: 6,
+  decayRangeSeconds: 6,
+  keyboardStep: 0.01,
+  previewGain: 0.5,
+  previewFadeSeconds: 0.06,
+  previewReleaseSeconds: 0.1,
+  morphSeconds: 0.08,
+}
 export const DEFAULTS = {
   mode: 'timer',
   durationMinutes: 10,
-  breathingEnabled: false,
+  breathingEnabled: true,
   hideTime: true,
-  audioGuidance: false,
-  bellEnabled: false,
+  audioGuidance: true,
+  bellEnabled: true,
   bellAtStart: true,
   bellAtEnd: true,
   bellIntervalMinutes: BELL_REPEAT_NEVER,
@@ -39,10 +77,37 @@ export const GUIDANCE_AUDIO = {
   lowPassMaxHz: 1200,
   filterQ: Math.SQRT1_2,
   gain: 0.065,
-  attackSeconds: 0.45,
-  attackMaxPhaseFraction: 0.25,
-  releaseSeconds: 0.65,
-  releaseMaxPhaseFraction: 0.3,
+  // Noise-only vocal-tract approximations. Negative gains create spectral dips.
+  // Optional endFrequencyHz gives a gentle drift over the full breathing phase.
+  inhale: {
+    gainMultiplier: 1,
+    adsr: { attackFraction: 0.32, decayFraction: 0.18, sustainLevel: 0.82, releaseFraction: 0.25 },
+    // A muted lower band and broad nasal resonance, with less upper-frequency hiss.
+    filters: [
+      { frequencyHz: 650, endFrequencyHz: 700, q: 2, gainDb: -9 },
+      { frequencyHz: 1100, endFrequencyHz: 1200, q: 0.9, gainDb: 4 },
+      { frequencyHz: 2100, q: 0.7, gainDb: -8 },
+      { frequencyHz: 4200, q: 0.6, gainDb: -12 },
+    ],
+  },
+  exhale: {
+    gainMultiplier: 0.48,
+    adsr: { attackFraction: 0.14, decayFraction: 0.22, sustainLevel: 0.58, releaseFraction: 0.4 },
+    // Open "ahh" resonances, softened and broadened to stay breathy.
+    filters: [
+      { frequencyHz: 740, endFrequencyHz: 700, q: 2.4, gainDb: 9 },
+      { frequencyHz: 1150, endFrequencyHz: 1050, q: 3.4, gainDb: 10 },
+      { frequencyHz: 2500, endFrequencyHz: 2350, q: 3.5, gainDb: 6 },
+      { frequencyHz: 3800, q: 0.7, gainDb: -6 },
+    ],
+  },
+  // ADSR fractions scale with the full phase; the unused fraction is sustain time.
+  envelopeSamples: 128,
+  envelopeSamplesPerSecond: 128,
+  resumeFadeSeconds: 0.08,
+  resumeFadeMaxFraction: 0.25,
+  boundaryFadeSeconds: 0.2,
+  boundaryFadeMaxFraction: 0.3,
   noiseBufferSeconds: 4,
   stopFadeSeconds: 0.02,
   stopSeconds: 0.025,

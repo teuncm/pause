@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { BELL_SOUNDS, createBellPlayer, scheduleBell } from './bells.js'
+import { generateBellTimbre } from './bell-timbre.js'
 
 function audioContext() {
   const oscillators = []
@@ -17,7 +18,11 @@ function audioContext() {
     }),
     createOscillator() {
       const oscillator = {
-        frequency: { setValueAtTime: vi.fn() },
+        frequency: {
+          setValueAtTime: vi.fn(),
+          cancelScheduledValues: vi.fn(),
+          setTargetAtTime: vi.fn(),
+        },
         connect: vi.fn(),
         disconnect: vi.fn(),
         start: vi.fn(),
@@ -34,6 +39,7 @@ function audioContext() {
           linearRampToValueAtTime: vi.fn(),
           exponentialRampToValueAtTime: vi.fn(),
           cancelScheduledValues: vi.fn(),
+          setTargetAtTime: vi.fn(),
         },
         connect: vi.fn(),
         disconnect: vi.fn(),
@@ -66,6 +72,65 @@ function audioContext() {
 }
 
 describe('interval bells', () => {
+  it('sustains preview partials without decay or retriggering, including after their normal lifetimes', () => {
+    const audio = audioContext()
+    const sound = generateBellTimbre({ x: 0.2, y: 0.4 })
+    const bell = scheduleBell(audio.context, 0, sound, { sustain: true })
+    for (const oscillator of audio.oscillators) expect(oscillator.stop).not.toHaveBeenCalled()
+    for (const gain of audio.gains)
+      expect(gain.gain.exponentialRampToValueAtTime).not.toHaveBeenCalled()
+    const count = audio.oscillators.length
+    audio.context.currentTime = 60
+    const next = generateBellTimbre({ x: 0.8, y: 0.7 })
+    bell.update(next)
+    expect(audio.oscillators).toHaveLength(count)
+    const partials = audio.oscillators.filter((o) => o.frequency.setTargetAtTime.mock.calls.length)
+    expect(partials).toHaveLength(next.partials.length)
+    for (const [index, oscillator] of partials.entries()) {
+      expect(oscillator.frequency.setTargetAtTime.mock.calls[0][0]).toBe(next.partials[index][0])
+      const gain = oscillator.connect.mock.calls[0][0].gain
+      expect(gain.setTargetAtTime.mock.calls[0][0]).toBe(next.partials[index][1])
+      expect(gain.exponentialRampToValueAtTime).not.toHaveBeenCalled()
+    }
+    bell.stop(0.1)
+    for (const oscillator of audio.oscillators) {
+      expect(oscillator.stop).toHaveBeenCalledOnce()
+      oscillator.onended()
+    }
+    expect(bell.ended).toBe(true)
+  })
+  it('uses a generated spectrum for session bells and morphs a ringing custom bell', async () => {
+    const audio = audioContext()
+    const player = createBellPlayer(() => audio.context)
+    const sound = generateBellTimbre({ x: 0.2, y: 0.4 })
+    await player.prepare()
+    player.begin({
+      intervalMs: null,
+      durationMs: 60_000,
+      soundId: sound,
+      startBell: true,
+      endBell: true,
+    })
+    const partials = audio.oscillators.filter(
+      (o) => o.frequency.setValueAtTime.mock.calls[0][0] > 1,
+    )
+    expect(partials.map((o) => o.frequency.setValueAtTime.mock.calls[0][0])).toEqual([
+      ...sound.partials.map(([hz]) => hz),
+      ...sound.partials.map(([hz]) => hz),
+    ])
+    const ringing = scheduleBell(audio.context, 0, sound)
+    audio.context.currentTime = 1
+    const next = generateBellTimbre({ x: 0.3, y: 0.5 })
+    ringing.update(next)
+    const morphing = audio.oscillators
+      .slice(-8)
+      .filter((o) => o.frequency.setTargetAtTime.mock.calls.length)
+    expect(morphing.map((o) => o.frequency.setTargetAtTime.mock.calls[0][0])).toEqual(
+      next.partials.map(([hz]) => hz),
+    )
+    ringing.stop()
+    await player.close()
+  })
   it('aligns start, interval, and end bells to the shared transport start time', async () => {
     const audio = audioContext()
     const player = createBellPlayer(() => audio.context)
