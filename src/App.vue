@@ -1,10 +1,5 @@
 <script setup>
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
-import BellPad from './BellPad.vue'
-import VowelPad from './VowelPad.vue'
-import { createVowelPreview } from './vowel-preview.js'
-import { generateBellTimbre } from './bell-timbre.js'
-import { createBellPreview } from './bell-preview.js'
 import {
   Check,
   ChevronDown,
@@ -31,9 +26,6 @@ import {
   BREATHING_MAX_SECONDS,
   BREATHING_ANIMATION,
   SESSION_TICK_MS,
-  CUSTOM_BELL_ID,
-  BELL_TIMBRE,
-  VOWEL_CHART,
 } from './constants.js'
 import { animate } from 'motion/mini'
 import { getBreathingAnimation, getBreathingState, isValidBreathing } from './breathing.js'
@@ -70,7 +62,6 @@ const minutes = ref(DEFAULTS.durationMinutes)
 const breathingEnabled = ref(DEFAULTS.breathingEnabled)
 const hideTime = ref(DEFAULTS.hideTime)
 const audioGuidance = ref(DEFAULTS.audioGuidance)
-const exhaleVowel = ref({ ...VOWEL_CHART.defaultPosition })
 const guidanceEnabled = computed(() => breathingEnabled.value && audioGuidance.value)
 const breathingExpanded = ref(DEFAULTS.breathingEnabled)
 const bellExpanded = ref(DEFAULTS.bellEnabled)
@@ -168,10 +159,6 @@ const bellIntervalMs = computed(() =>
   bellInterval.value === BELL_REPEAT_NEVER ? null : bellInterval.value * 60_000,
 )
 const bellSound = ref(DEFAULTS.bellSound)
-const bellPosition = ref({ ...BELL_TIMBRE.defaultPosition })
-const selectedBell = computed(() =>
-  bellSound.value === CUSTOM_BELL_ID ? generateBellTimbre(bellPosition.value) : bellSound.value,
-)
 const bellIntervals = BELL_REPEAT_MINUTES
 const audioSupported = Boolean(window.AudioContext || window.webkitAudioContext)
 const audioError = ref('')
@@ -180,12 +167,6 @@ const isResuming = ref(false)
 const isTestingBell = ref(false)
 const audio = createAudioTransport()
 const bells = createBellPlayer(() => audio.context)
-const bellPreview = createBellPreview(() => audio.context)
-const vowelPreview = createVowelPreview(() => audio.context)
-let vowelPreviewActive = false
-let vowelPreviewVersion = 0
-let previewActive = false
-let previewVersion = 0
 const usesAudio = computed(() => bellEnabled.value || guidanceEnabled.value)
 const screen = ref('setup')
 const paused = ref(false)
@@ -280,13 +261,12 @@ function tick() {
 
 async function testBell() {
   if (isTestingBell.value || isStarting.value) return
-  stopPreviews()
   isTestingBell.value = true
   audioError.value = ''
   try {
     await audio.prepare()
     await bells.prepare()
-    if (bellEnabled.value && screen.value === 'setup') bells.preview(selectedBell.value)
+    if (bellEnabled.value && screen.value === 'setup') bells.preview(bellSound.value)
   } catch {
     audioError.value = 'Bell audio could not start. Try again or turn off bell sounds.'
   } finally {
@@ -295,108 +275,10 @@ async function testBell() {
 }
 
 function changeBells() {
-  stopCustomPreview()
   bellExpanded.value = bellEnabled.value
   audioError.value = ''
   bells.stop()
 }
-
-function stopCustomPreview() {
-  previewVersion += 1
-  previewActive = false
-  bellPreview.stop()
-}
-async function beginCustomPreview() {
-  if (previewActive || isStarting.value || isTestingBell.value) return
-  stopVowelPreview()
-  bellSound.value = CUSTOM_BELL_ID
-  const version = ++previewVersion
-  previewActive = true
-  audioError.value = ''
-  bells.stop()
-  try {
-    await audio.prepare()
-    if (
-      version !== previewVersion ||
-      !bellEnabled.value ||
-      !bellExpanded.value ||
-      screen.value !== 'setup' ||
-      bellSound.value !== CUSTOM_BELL_ID ||
-      document.hidden
-    )
-      return
-    bellPreview.begin(selectedBell.value)
-    if (!previewActive) bellPreview.release()
-  } catch {
-    if (version === previewVersion) {
-      stopCustomPreview()
-      audioError.value = 'Bell preview could not start. Try again.'
-    }
-  }
-}
-function endCustomPreview() {
-  previewActive = false
-  bellPreview.release()
-}
-function updateBellPosition(value) {
-  bellSound.value = CUSTOM_BELL_ID
-  bellPosition.value = value
-  if (previewActive) bellPreview.update(selectedBell.value)
-}
-function stopVowelPreview() {
-  vowelPreviewVersion += 1
-  vowelPreviewActive = false
-  vowelPreview.stop()
-}
-function stopPreviews() {
-  stopCustomPreview()
-  stopVowelPreview()
-}
-async function beginVowelPreview() {
-  if (vowelPreviewActive || isStarting.value || isTestingBell.value || !guidanceEnabled.value)
-    return
-  stopCustomPreview()
-  const version = ++vowelPreviewVersion
-  vowelPreviewActive = true
-  audioError.value = ''
-  bells.stop()
-  try {
-    await audio.prepare()
-    if (
-      version !== vowelPreviewVersion ||
-      !guidanceEnabled.value ||
-      !breathingExpanded.value ||
-      screen.value !== 'setup' ||
-      document.hidden
-    )
-      return
-    vowelPreview.begin(exhaleVowel.value)
-    if (!vowelPreviewActive) vowelPreview.release()
-  } catch {
-    if (version === vowelPreviewVersion) {
-      stopVowelPreview()
-      audioError.value = 'Vowel preview could not start. Try again.'
-    }
-  }
-}
-function endVowelPreview() {
-  vowelPreviewActive = false
-  vowelPreview.release()
-}
-function updateExhaleVowel(value) {
-  exhaleVowel.value = value
-  if (vowelPreviewActive) vowelPreview.update(value)
-}
-function previewVisibility() {
-  if (document.hidden) stopPreviews()
-}
-watch([breathingEnabled, breathingExpanded, audioGuidance], stopVowelPreview)
-watch([bellEnabled, bellExpanded], stopCustomPreview)
-watch(bellSound, (value) => {
-  if (value !== CUSTOM_BELL_ID) stopCustomPreview()
-})
-window.addEventListener('blur', stopPreviews)
-document.addEventListener('visibilitychange', previewVisibility)
 
 function changeBreathing() {
   breathingExpanded.value = breathingEnabled.value
@@ -421,7 +303,6 @@ async function start() {
     return
   }
   isStarting.value = true
-  stopPreviews()
   audioError.value = ''
   try {
     bells.stop()
@@ -432,7 +313,6 @@ async function start() {
       ? audio.begin({
           durationMs,
           breathing: guidanceEnabled.value ? breathingDurations.value : null,
-          vowel: exhaleVowel.value,
         })
       : undefined
     if (bellEnabled.value)
@@ -441,7 +321,7 @@ async function start() {
         durationMs,
         startBell: bellAtStart.value,
         endBell: bellAtEnd.value,
-        soundId: selectedBell.value,
+        soundId: bellSound.value,
         startTime,
       })
     sessionId += 1
@@ -483,7 +363,6 @@ async function togglePause() {
             durationMs: mode.value === 'timer' ? minutes.value * 60_000 : null,
             elapsedMs: clock.read().elapsed,
             breathing: guidanceEnabled.value ? breathingDurations.value : null,
-            vowel: exhaleVowel.value,
           })
         : undefined
       if (bellEnabled.value)
@@ -492,7 +371,7 @@ async function togglePause() {
           durationMs: mode.value === 'timer' ? minutes.value * 60_000 : null,
           elapsedMs: clock.read().elapsed,
           endBell: bellAtEnd.value,
-          soundId: selectedBell.value,
+          soundId: bellSound.value,
           startTime,
         })
       clock.resume()
@@ -545,7 +424,6 @@ async function finish() {
 }
 
 function reset() {
-  stopPreviews()
   audio.stop()
   stopBreathing()
   sessionId += 1
@@ -558,9 +436,6 @@ function reset() {
 }
 
 onUnmounted(() => {
-  stopPreviews()
-  window.removeEventListener('blur', stopPreviews)
-  document.removeEventListener('visibilitychange', previewVisibility)
   reducedMotion.removeEventListener('change', updateMotionPreference)
   stopBreathing()
   systemTheme.removeEventListener('change', updateSystemTheme)
@@ -801,20 +676,6 @@ onUnmounted(() => {
                     />
                     <span class="switch" aria-hidden="true"></span>
                   </label>
-                  <VowelPad
-                    v-if="audioGuidance"
-                    :model-value="exhaleVowel"
-                    :disabled="
-                      !breathingEnabled ||
-                      !breathingExpanded ||
-                      isStarting ||
-                      isTestingBell ||
-                      !audioSupported
-                    "
-                    @update:model-value="updateExhaleVowel"
-                    @preview-start="beginVowelPreview"
-                    @preview-end="endVowelPreview"
-                  />
                 </div>
               </div>
               <div class="setting-group" role="group" aria-labelledby="bell-settings-label">
@@ -872,7 +733,6 @@ onUnmounted(() => {
                       <option v-for="sound in BELL_SOUNDS" :key="sound.id" :value="sound.id">
                         {{ sound.label }}
                       </option>
-                      <option :value="CUSTOM_BELL_ID">Custom bell</option>
                     </select>
                     <button
                       class="test-bell"
@@ -886,13 +746,6 @@ onUnmounted(() => {
                       >
                     </button>
                   </div>
-                  <BellPad
-                    :model-value="bellPosition"
-                    :disabled="!bellEnabled || !bellExpanded || isStarting || isTestingBell"
-                    @update:model-value="updateBellPosition"
-                    @preview-start="beginCustomPreview"
-                    @preview-end="endCustomPreview"
-                  />
                   <label class="setting-row">
                     <span class="setting-label">At session start</span>
                     <input
