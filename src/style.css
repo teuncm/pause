@@ -2,6 +2,8 @@
   --page-gutter: clamp(0.75rem, 4.5vw, 1.5rem);
   --panel-width: 24rem;
   --touch-target: 2.75rem;
+  --botanical-filter: brightness(1);
+  --botanical-opacity: 0.3;
   color-scheme: light dark;
   --background: light-dark(#fafaf8, #262e29);
   --text: light-dark(#303a31, #f2f3ec);
@@ -36,9 +38,19 @@
 }
 :root[data-theme='light'] {
   color-scheme: light;
+  --botanical-filter: brightness(1);
+  --botanical-opacity: 0.3;
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
+  --botanical-filter: invert(1) hue-rotate(180deg);
+  --botanical-opacity: 0.16;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --botanical-filter: invert(1) hue-rotate(180deg);
+    --botanical-opacity: 0.16;
+  }
 }
 * {
   box-sizing: border-box;
@@ -112,10 +124,23 @@ svg {
   border: 0;
 }
 .app-shell {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   min-height: 100svh;
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
     env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+}
+.app-shell::before {
+  content: '';
+  position: fixed;
+  inset: -4rem;
+  z-index: -1;
+  pointer-events: none;
+  background: url('./assets/botanical.webp') repeat;
+  background-size: 80rem 80rem;
+  filter: var(--botanical-filter) blur(48px);
+  opacity: var(--botanical-opacity);
 }
 .site-header {
   display: flex;
@@ -868,6 +893,9 @@ svg {
 }
 
 @media (forced-colors: active) {
+  .app-shell::before {
+    display: none;
+  }
   .orb-surface {
     fill: Canvas;
     stroke: CanvasText;
