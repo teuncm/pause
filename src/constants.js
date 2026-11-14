@@ -91,7 +91,7 @@ export const GUIDANCE_AUDIO = {
     ],
   },
   exhale: {
-    gainMultiplier: 0.3,
+    gainMultiplier: 0.3 * 10 ** (-3 / 20),
     adsr: { attackFraction: 0.14, decayFraction: 0.22, sustainLevel: 0.58, releaseFraction: 0.4 },
     // Open-front to open-central "ah" over the complete exhale; no change in height.
     filters: [
