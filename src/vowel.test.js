@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import { getVowelFormants, createVowelProfile } from './vowel.js'
 import { VOWEL_CHART, GUIDANCE_AUDIO } from './constants.js'
 
-it('matches the four chart corners and keeps the default open-back ahh', () => {
+it('matches the four chart corners and defaults to an open-front ah', () => {
   expect(getVowelFormants({ x: 0, y: 0 })).toEqual(VOWEL_CHART.openFront)
   expect(getVowelFormants({ x: 1, y: 0 })).toEqual(VOWEL_CHART.openBack)
   expect(getVowelFormants({ x: 0, y: 1 })).toEqual(VOWEL_CHART.closeFront)
@@ -38,7 +38,16 @@ it('preserves ADSR, resonance strengths, and the fourth filter', () => {
     expect(profile.filters[i].gainDb).toBe(GUIDANCE_AUDIO.exhale.filters[i].gainDb)
     expect(profile.filters[i].q).toBe(GUIDANCE_AUDIO.exhale.filters[i].q)
   }
-  expect(GUIDANCE_AUDIO.exhale.filters[0].frequencyHz).toBe(740)
+  expect(GUIDANCE_AUDIO.exhale.filters[0].frequencyHz).toBe(850)
+})
+it('moves the default exhale from open-front to open-central across all three formants', () => {
+  const profile = createVowelProfile()
+  expect(profile.filters.slice(0, 3).map((f) => f.frequencyHz)).toEqual(
+    getVowelFormants({ x: 0, y: 0 }),
+  )
+  expect(profile.filters.slice(0, 3).map((f) => f.endFrequencyHz)).toEqual(
+    getVowelFormants({ x: 0.5, y: 0 }),
+  )
 })
 it('clamps out-of-range and invalid coordinates', () => {
   expect(getVowelFormants({ x: -1, y: 2 })).toEqual(VOWEL_CHART.closeFront)
