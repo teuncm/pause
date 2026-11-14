@@ -93,11 +93,11 @@ export const GUIDANCE_AUDIO = {
   exhale: {
     gainMultiplier: 0.3 * 10 ** (-3 / 20),
     adsr: { attackFraction: 0.14, decayFraction: 0.22, sustainLevel: 0.58, releaseFraction: 0.4 },
-    // Open-front to open-central "ah" over the complete exhale; no change in height.
+    // Open-front a to open-back ɑ over the complete exhale; no change in height.
     filters: [
       { frequencyHz: 950, endFrequencyHz: 950, q: 2.4, gainDb: 12 },
-      { frequencyHz: 1550, endFrequencyHz: 1350, q: 3.4, gainDb: 13 },
-      { frequencyHz: 2800, endFrequencyHz: 2650, q: 3.5, gainDb: 9 },
+      { frequencyHz: 1550, endFrequencyHz: 1150, q: 3.4, gainDb: 13 },
+      { frequencyHz: 2800, endFrequencyHz: 2500, q: 3.5, gainDb: 9 },
       { frequencyHz: 3800, q: 0.7, gainDb: -6 },
     ],
   },
