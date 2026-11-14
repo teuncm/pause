@@ -63,8 +63,8 @@ const breathingEnabled = ref(DEFAULTS.breathingEnabled)
 const hideTime = ref(DEFAULTS.hideTime)
 const audioGuidance = ref(DEFAULTS.audioGuidance)
 const guidanceEnabled = computed(() => breathingEnabled.value && audioGuidance.value)
-const breathingExpanded = ref(DEFAULTS.breathingEnabled)
-const bellExpanded = ref(DEFAULTS.bellEnabled)
+const breathingExpanded = ref(false)
+const bellExpanded = ref(false)
 const breathingDurations = ref(
   Object.fromEntries(BREATHING_PHASES.map(({ key, defaultSeconds }) => [key, defaultSeconds])),
 )
