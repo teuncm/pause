@@ -14,8 +14,8 @@ export const VOWEL_CHART = {
   openBack: [950, 1150, 2500],
   closeFront: [300, 2500, 3300],
   closeBack: [350, 800, 2400],
-  lowPassMinHz: 3000, // Leave room for all three formants on exhalation.
-  lowPassMaxHz: 3800,
+  lowPassMinHz: 2200, // Soften broadband hiss; F3 remains gently attenuated.
+  lowPassMaxHz: 2800,
   morphSeconds: 0.08,
   previewFadeSeconds: 0.06,
   previewReleaseSeconds: 0.1,
@@ -95,9 +95,9 @@ export const GUIDANCE_AUDIO = {
     adsr: { attackFraction: 0.14, decayFraction: 0.22, sustainLevel: 0.58, releaseFraction: 0.4 },
     // Open-front to open-central "ah" over the complete exhale; no change in height.
     filters: [
-      { frequencyHz: 950, endFrequencyHz: 950, q: 2.4, gainDb: 9 },
-      { frequencyHz: 1550, endFrequencyHz: 1350, q: 3.4, gainDb: 10 },
-      { frequencyHz: 2800, endFrequencyHz: 2650, q: 3.5, gainDb: 6 },
+      { frequencyHz: 950, endFrequencyHz: 950, q: 2.4, gainDb: 12 },
+      { frequencyHz: 1550, endFrequencyHz: 1350, q: 3.4, gainDb: 13 },
+      { frequencyHz: 2800, endFrequencyHz: 2650, q: 3.5, gainDb: 9 },
       { frequencyHz: 3800, q: 0.7, gainDb: -6 },
     ],
   },
