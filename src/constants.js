@@ -115,6 +115,12 @@ export const GUIDANCE_AUDIO = {
 }
 export const AUDIO_SCHEDULE_LEAD_SECONDS = 0.1
 export const BELL_AUDIO = {
+  strikeSeconds: 0.55,
+  strikeDecaySeconds: 0.14,
+  strikeRateHz: 37,
+  strikeDepthCents: 45,
+  strikeUpperDepthCents: 85,
+  strikeSamples: 256,
   minimumGain: 0.0001, // Exponential ramps must finish above zero.
   dryGain: 0.82,
   stopFadeSeconds: 0.015,

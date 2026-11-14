@@ -70,6 +70,25 @@ export function scheduleBell(
     const gain = context.createGain()
     oscillator.type = 'sine'
     oscillator.frequency.setValueAtTime(frequency, start)
+    if (!sustain) {
+      // Brief, damped pitch roughness suggests a soft mallet contacting the bell.
+      // Upper modes flex more; the amplitude envelope remains exactly as before.
+      const strike = new Float32Array(BELL_AUDIO.strikeSamples)
+      const depth =
+        BELL_AUDIO.strikeDepthCents +
+        (BELL_AUDIO.strikeUpperDepthCents * index) / Math.max(1, sound.partials.length - 1)
+      for (let i = 0; i < strike.length; i++) {
+        const time = (BELL_AUDIO.strikeSeconds * i) / (strike.length - 1)
+        const phase = 2 * Math.PI * BELL_AUDIO.strikeRateHz * (1 + index * 0.13) * time
+        strike[i] =
+          (depth *
+            Math.exp(-time / BELL_AUDIO.strikeDecaySeconds) *
+            (Math.sin(phase) + 0.3 * Math.sin(phase * Math.SQRT2))) /
+          1.3
+      }
+      strike[0] = strike[strike.length - 1] = 0
+      oscillator.detune.setValueCurveAtTime(strike, start, BELL_AUDIO.strikeSeconds)
+    }
     gain.gain.setValueAtTime(sustain ? 0 : BELL_AUDIO.minimumGain, start)
     gain.gain.linearRampToValueAtTime(
       volume,

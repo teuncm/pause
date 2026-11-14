@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { BELL_SOUNDS, createBellPlayer, scheduleBell } from './bells.js'
 import { generateBellTimbre } from './bell-timbre.js'
+import { BELL_AUDIO } from './constants.js'
 
 function audioContext() {
   const oscillators = []
@@ -18,6 +19,7 @@ function audioContext() {
     }),
     createOscillator() {
       const oscillator = {
+        detune: { setValueCurveAtTime: vi.fn() },
         frequency: {
           setValueAtTime: vi.fn(),
           cancelScheduledValues: vi.fn(),
@@ -72,6 +74,35 @@ function audioContext() {
 }
 
 describe('interval bells', () => {
+  it('adds a settling strike to every partial while retaining the original volume envelope', () => {
+    for (const sound of BELL_SOUNDS) {
+      const audio = audioContext()
+      scheduleBell(audio.context, 2, sound)
+      const partials = audio.oscillators.filter(
+        (o) => o.detune.setValueCurveAtTime.mock.calls.length,
+      )
+      expect(partials).toHaveLength(sound.partials.length)
+      partials.forEach((oscillator, index) => {
+        const [curve, start, duration] = oscillator.detune.setValueCurveAtTime.mock.calls[0]
+        const [, volume, decay, delay = 0] = sound.partials[index]
+        expect(start).toBe(2 + delay)
+        expect(duration).toBe(BELL_AUDIO.strikeSeconds)
+        expect(curve[0]).toBe(0)
+        expect(curve.at(-1)).toBe(0)
+        expect(Math.max(...curve.map(Math.abs))).toBeGreaterThan(1)
+        const gain = audio.gains.find((g) =>
+          g.gain.linearRampToValueAtTime.mock.calls.some(
+            ([v, t]) => v === volume && t === start + sound.attack,
+          ),
+        )
+        expect(gain).toBeDefined()
+        expect(gain.gain.exponentialRampToValueAtTime).toHaveBeenCalledWith(
+          BELL_AUDIO.minimumGain,
+          start + decay,
+        )
+      })
+    }
+  })
   it('sustains preview partials without decay or retriggering, including after their normal lifetimes', () => {
     const audio = audioContext()
     const sound = generateBellTimbre({ x: 0.2, y: 0.4 })
