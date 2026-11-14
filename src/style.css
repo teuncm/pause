@@ -2,8 +2,8 @@
   --page-gutter: clamp(0.75rem, 4.5vw, 1.5rem);
   --panel-width: 24rem;
   --touch-target: 2.75rem;
-  --botanical-filter: brightness(1);
-  --botanical-opacity: 0.3;
+
+  --botanical-opacity: 0.2;
   color-scheme: light dark;
   --background: light-dark(#fafaf8, #262e29);
   --text: light-dark(#303a31, #f2f3ec);
@@ -38,18 +38,18 @@
 }
 :root[data-theme='light'] {
   color-scheme: light;
-  --botanical-filter: brightness(1);
-  --botanical-opacity: 0.3;
+
+  --botanical-opacity: 0.2;
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --botanical-filter: invert(1) hue-rotate(180deg);
-  --botanical-opacity: 0.16;
+
+  --botanical-opacity: 0.4;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --botanical-filter: invert(1) hue-rotate(180deg);
-    --botanical-opacity: 0.16;
+
+    --botanical-opacity: 0.4;
   }
 }
 * {
@@ -134,12 +134,12 @@ svg {
 .app-shell::before {
   content: '';
   position: fixed;
-  inset: -4rem;
+  inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: url('./assets/botanical.webp') repeat;
-  background-size: 80rem 80rem;
-  filter: var(--botanical-filter) blur(48px);
+  /* BiancaVanDijk, Pixabay Content License:
+     https://pixabay.com/illustrations/seeds-leaves-plant-boho-botanical-7869190/ */
+  background: url('./assets/seeds-botanical.jpg') center / cover no-repeat;
   opacity: var(--botanical-opacity);
 }
 .site-header {
