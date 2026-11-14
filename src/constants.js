@@ -115,6 +115,7 @@ export const GUIDANCE_AUDIO = {
 }
 export const AUDIO_SCHEDULE_LEAD_SECONDS = 0.1
 export const BELL_AUDIO = {
+  outputGain: 10 ** (-2 / 20),
   strikeSeconds: 0.22,
   strikeDecaySeconds: 0.065,
   strikeDepthCents: 35,

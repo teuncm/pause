@@ -20,7 +20,7 @@ export function scheduleBell(
   const output = context.createGain()
   const dry = context.createGain()
   effectNodes.add(input).add(output).add(dry)
-  output.gain.setValueAtTime(1, when)
+  output.gain.setValueAtTime(BELL_AUDIO.outputGain, when)
   dry.gain.setValueAtTime(BELL_AUDIO.dryGain, when)
   input.connect(dry)
   dry.connect(output)
