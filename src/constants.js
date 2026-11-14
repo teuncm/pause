@@ -10,8 +10,8 @@ export const VOWEL_CHART = {
   strengthStep: 0.01,
   // Approximate unvoiced F1/F2/F3 anchors (Hz), not a speaker-specific voice model.
   // X: front -> back; Y: open -> close.
-  openFront: [850, 1700, 2800],
-  openBack: [740, 1150, 2500],
+  openFront: [950, 1550, 2800],
+  openBack: [950, 1150, 2500],
   closeFront: [300, 2500, 3300],
   closeBack: [350, 800, 2400],
   lowPassMinHz: 3000, // Leave room for all three formants on exhalation.
@@ -95,8 +95,8 @@ export const GUIDANCE_AUDIO = {
     adsr: { attackFraction: 0.14, decayFraction: 0.22, sustainLevel: 0.58, releaseFraction: 0.4 },
     // Open-front to open-central "ah" over the complete exhale; no change in height.
     filters: [
-      { frequencyHz: 850, endFrequencyHz: 795, q: 2.4, gainDb: 9 },
-      { frequencyHz: 1700, endFrequencyHz: 1425, q: 3.4, gainDb: 10 },
+      { frequencyHz: 950, endFrequencyHz: 950, q: 2.4, gainDb: 9 },
+      { frequencyHz: 1550, endFrequencyHz: 1350, q: 3.4, gainDb: 10 },
       { frequencyHz: 2800, endFrequencyHz: 2650, q: 3.5, gainDb: 6 },
       { frequencyHz: 3800, q: 0.7, gainDb: -6 },
     ],

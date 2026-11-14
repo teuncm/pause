@@ -38,7 +38,7 @@ it('preserves ADSR, resonance strengths, and the fourth filter', () => {
     expect(profile.filters[i].gainDb).toBe(GUIDANCE_AUDIO.exhale.filters[i].gainDb)
     expect(profile.filters[i].q).toBe(GUIDANCE_AUDIO.exhale.filters[i].q)
   }
-  expect(GUIDANCE_AUDIO.exhale.filters[0].frequencyHz).toBe(850)
+  expect(GUIDANCE_AUDIO.exhale.filters[0].frequencyHz).toBe(950)
 })
 it('moves the default exhale from open-front to open-central across all three formants', () => {
   const profile = createVowelProfile()
