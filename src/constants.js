@@ -3,7 +3,7 @@ export const DEFAULT_BELL_SOUND = 'soft'
 export const BELL_REPEAT_NEVER = 0
 export const CUSTOM_BELL_ID = 'custom'
 export const VOWEL_CHART = {
-  defaultPosition: { x: 0, y: 0 }, // Begin exhaling with an open-front "ah".
+  defaultPosition: { x: 0.5, y: 0 }, // Begin fully at open-central ä.
   keyboardStep: 0.01,
   defaultStrength: 1,
   maxStrength: 1.5,
@@ -93,11 +93,11 @@ export const GUIDANCE_AUDIO = {
   exhale: {
     gainMultiplier: 0.3 * 10 ** (-3 / 20),
     adsr: { attackFraction: 0.14, decayFraction: 0.22, sustainLevel: 0.58, releaseFraction: 0.4 },
-    // Open-front a to open-back ɑ over the complete exhale; no change in height.
+    // Begin at ä, then move to ɑ while staying fully open.
     filters: [
       { frequencyHz: 950, endFrequencyHz: 950, q: 2.4, gainDb: 12 },
-      { frequencyHz: 1550, endFrequencyHz: 1150, q: 3.4, gainDb: 13 },
-      { frequencyHz: 2800, endFrequencyHz: 2500, q: 3.5, gainDb: 9 },
+      { frequencyHz: 1350, endFrequencyHz: 1150, q: 3.4, gainDb: 13 },
+      { frequencyHz: 2650, endFrequencyHz: 2500, q: 3.5, gainDb: 9 },
       { frequencyHz: 3800, q: 0.7, gainDb: -6 },
     ],
   },

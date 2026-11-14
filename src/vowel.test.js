@@ -2,7 +2,7 @@ import { expect, it } from 'vitest'
 import { getVowelFormants, createVowelProfile } from './vowel.js'
 import { VOWEL_CHART, GUIDANCE_AUDIO } from './constants.js'
 
-it('matches the four chart corners and defaults to an open-front ah', () => {
+it('matches the four chart corners and the default exhale starting formants', () => {
   expect(getVowelFormants({ x: 0, y: 0 })).toEqual(VOWEL_CHART.openFront)
   expect(getVowelFormants({ x: 1, y: 0 })).toEqual(VOWEL_CHART.openBack)
   expect(getVowelFormants({ x: 0, y: 1 })).toEqual(VOWEL_CHART.closeFront)
@@ -40,10 +40,10 @@ it('preserves ADSR, resonance strengths, and the fourth filter', () => {
   }
   expect(GUIDANCE_AUDIO.exhale.filters[0].frequencyHz).toBe(950)
 })
-it('moves the default exhale from open-front a to open-back ɑ across all three formants', () => {
+it('moves the default exhale from ä to ɑ across all three formants', () => {
   const profile = createVowelProfile()
   expect(profile.filters.slice(0, 3).map((f) => f.frequencyHz)).toEqual(
-    getVowelFormants({ x: 0, y: 0 }),
+    getVowelFormants({ x: 0.5, y: 0 }),
   )
   expect(profile.filters.slice(0, 3).map((f) => f.endFrequencyHz)).toEqual(
     getVowelFormants({ x: 1, y: 0 }),
