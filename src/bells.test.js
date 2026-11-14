@@ -87,7 +87,8 @@ describe('interval bells', () => {
         const [, volume, decay, delay = 0] = sound.partials[index]
         expect(start).toBe(2 + delay)
         expect(duration).toBe(BELL_AUDIO.strikeSeconds)
-        expect(curve[0]).toBe(0)
+        expect(curve[0]).toBeGreaterThan(0)
+        for (let i = 1; i < curve.length; i++) expect(curve[i]).toBeLessThanOrEqual(curve[i - 1])
         expect(curve.at(-1)).toBe(0)
         expect(Math.max(...curve.map(Math.abs))).toBeGreaterThan(1)
         const gain = audio.gains.find((g) =>
