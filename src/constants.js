@@ -73,8 +73,8 @@ export const SESSION_TICK_MS = 200
 // Audio frequencies are Hz; envelope and scheduling times are seconds.
 export const GUIDANCE_AUDIO = {
   highPassHz: 500,
-  lowPassMinHz: 800,
-  lowPassMaxHz: 1200,
+  lowPassMinHz: 900,
+  lowPassMaxHz: 1500,
   filterQ: Math.SQRT1_2,
   gain: 0.065,
   // Noise-only vocal-tract approximations. Negative gains create spectral dips.

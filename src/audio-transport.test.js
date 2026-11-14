@@ -119,7 +119,7 @@ describe('breathing audio transport', () => {
     f.events[0].callback(10.1)
     f.events[1].callback(16.1)
     expect(f.nodes[2].frequency.setValueAtTime.mock.calls).toEqual([
-      [800, 10.1],
+      [900, 10.1],
       [VOWEL_CHART.lowPassMaxHz, 16.1],
     ])
     const curves = f.nodes[3].gain.setValueCurveAtTime.mock.calls
@@ -176,7 +176,7 @@ describe('breathing audio transport', () => {
     expect(f.events.map(({ at }) => at)).toEqual([2, 14, 6])
     f.events[0].callback(10.1)
     expect(f.nodes[2].frequency.setValueAtTime).toHaveBeenCalledWith(
-      expect.closeTo(Math.sqrt(800 * 1200), 8),
+      expect.closeTo(Math.sqrt(900 * 1500), 8),
       10.1,
     )
     const curve = expectCurve(f.nodes[3].gain, 10.1, 2)
@@ -223,7 +223,7 @@ describe('breathing audio transport', () => {
     f.events[0].callback(10.1)
     expectCurve(f.nodes[3].gain, 10.1, 2)
     expect(f.nodes[2].frequency.exponentialRampToValueAtTime).toHaveBeenCalledWith(
-      expect.closeTo(Math.sqrt(800 * 1200), 8),
+      expect.closeTo(Math.sqrt(900 * 1500), 8),
       12.1,
     )
   })
